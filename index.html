@@ -2,7 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 加入 viewport-fit=cover 以支援全螢幕安全區域 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>布拉格寧靜美學一日遊</title>
     
     <!-- Vue 3 -->
@@ -28,7 +29,12 @@
             --color-text: #2C2C2C; /* 深灰墨色 */
         }
 
-        body {
+        /* 關鍵修正：鎖定 HTML 和 Body 高度，防止整體頁面彈動 */
+        html, body {
+            height: 100dvh; /* 使用動態視窗高度 */
+            width: 100%;
+            overflow: hidden; /* 禁止 Body 捲動，只允許內部 Main 捲動 */
+            overscroll-behavior-y: none; /* iOS 關鍵：防止橡皮筋效果 */
             background-color: var(--color-bg);
             color: var(--color-text);
             font-family: 'Inter', sans-serif;
@@ -48,11 +54,20 @@
             scrollbar-width: none;
         }
 
-        /* 底部導航欄模糊效果 */
+        /* 底部導航欄模糊效果與定位修正 */
         .glass-nav {
-            background: rgba(253, 252, 248, 0.9);
+            background: rgba(253, 252, 248, 0.95);
             backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px); /* iOS Safari 支援 */
             border-top: 1px solid rgba(0,0,0,0.05);
+            z-index: 50;
+            /* 修正：改用 fixed 定位確保不隨內容捲動 */
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            max-width: 28rem; /* 對應 max-w-md */
+            margin: 0 auto; /* 居中 */
         }
 
         /* 輸入框聚焦樣式 */
@@ -60,6 +75,11 @@
             outline: none;
             border-color: var(--color-primary);
             box-shadow: 0 0 0 2px rgba(92, 107, 93, 0.1);
+        }
+
+        /* iOS 慣性捲動支援 */
+        .ios-scroll {
+            -webkit-overflow-scrolling: touch;
         }
 
         /* 過場動畫 */
@@ -71,25 +91,26 @@
         }
     </style>
 </head>
-<body class="antialiased h-screen flex flex-col overflow-hidden max-w-md mx-auto shadow-2xl border-x border-stone-100">
+<body class="max-w-md mx-auto shadow-2xl border-x border-stone-100 relative">
 
     <div id="app" class="flex flex-col h-full relative">
         
         <!-- 頂部標題區 -->
-        <header class="pt-8 pb-4 px-6 flex justify-between items-end bg-opacity-95 z-10">
+        <!-- 修正：加入 pt-[env(safe-area-inset-top)] 避開劉海 -->
+        <header class="pt-[calc(2rem+env(safe-area-inset-top))] pb-4 px-6 flex justify-between items-end bg-opacity-95 z-20 bg-[#FDFcF8] sticky top-0 border-b border-transparent transition-all">
             <div>
                 <p class="text-xs font-medium tracking-widest text-[#8C8279] uppercase mb-1">Dec 16, Monday</p>
                 <h1 class="text-3xl font-bold text-[#2C2C2C] font-serif">Prague <span class="text-[#5C6B5D] italic">Quietude</span></h1>
             </div>
             <div class="bg-[#F5F2EB] px-3 py-2 rounded-full shadow-sm flex items-center gap-2">
-                 <!-- 天氣圖示與氣溫 -->
                  <i class="fa-solid fa-snowflake text-[#8C8279] text-sm"></i>
                  <span class="text-[#5C6B5D] font-serif font-medium text-sm">-1°C</span>
             </div>
         </header>
 
         <!-- 主要內容區 (可捲動) -->
-        <main class="flex-1 overflow-y-auto no-scrollbar px-6 pb-24 relative">
+        <!-- 修正：增加底部 padding (pb-32) 避免內容被 fixed 的導航欄遮住 -->
+        <main class="flex-1 overflow-y-auto no-scrollbar px-6 pb-32 relative ios-scroll">
             
             <!-- VIEW: 行程表 (Itinerary) -->
             <div v-if="currentTab === 'itinerary'" class="space-y-6">
@@ -278,7 +299,8 @@
         </main>
 
         <!-- 底部導航欄 -->
-        <nav class="glass-nav absolute bottom-0 w-full pb-6 pt-2 px-6">
+        <!-- 修正：加入 pb-[calc(1.5rem+env(safe-area-inset-bottom))] 避開 Home Indicator，使用 class 定義的 fixed -->
+        <nav class="glass-nav px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-2">
             <div class="flex justify-around items-center">
                 <button 
                     @click="currentTab = 'itinerary'" 
@@ -310,8 +332,8 @@
         </nav>
 
         <!-- Modal: 新增/編輯行程 -->
-        <div v-if="showAddModal" class="absolute inset-0 z-50 bg-black/20 backdrop-blur-sm flex items-end sm:items-center justify-center">
-            <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-fade-in-up">
+        <div v-if="showAddModal" class="absolute inset-0 z-[60] bg-black/20 backdrop-blur-sm flex items-end sm:items-center justify-center">
+            <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-fade-in-up mb-[env(safe-area-inset-bottom)]">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="font-serif text-xl">{{ isEditing ? '編輯行程' : '新增行程' }}</h3>
                     <button @click="closeModal" class="w-8 h-8 rounded-full bg-[#F5F2EB] text-[#8C8279] flex items-center justify-center">
